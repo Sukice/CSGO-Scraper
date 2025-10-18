@@ -47,13 +47,36 @@ def get_realtime_data_steam(
     return parse_data(data)
 
 def get_history_data_steam(
-        name:str = "Dreams & Nightmares Case"
+        name:str = "Dreams & Nightmares Case",
+        mode:str = "raw"
 ):
+    def parse_data_by_mode(df, mode):
+        df['price'] = pd.to_numeric(df['price'], errors='coerce')
+        df['volume'] = pd.to_numeric(df['volume'], errors='coerce')
+        if mode != "raw":
+            df['amount'] = df['price'] * df['volume']
+            date_agg = df.groupby('date', as_index=False).agg(
+                all_volume=('volume', 'sum'),  # 同一日期的 volume 总和
+                all_amount=('amount', 'sum')  # 同一日期的 amount 总和
+            )
+            df = pd.merge(df, date_agg, on='date', how='left')
+            df['price'] = df['all_amount'] / df['all_volume']
+            df = df[['date', 'name', 'price', 'all_volume']]
+            df = df.rename(columns={
+                'date': 'date',
+                'name': 'name',
+                'price': 'price',
+                'all_volume': 'volume'
+            })
+            df = df.drop_duplicates(keep='first')
+            df = df.reset_index(drop=True)
+        return df
+
     name = get_market_name(name.strip())
     safe_name = name.replace("|", "-")
     if os.path.exists(f"../data/steam/{safe_name}.csv"):
         df = pd.read_csv(f"../data/steam/{safe_name}.csv")
-        return df
+        return parse_data_by_mode(df, mode)
     encoded_name = quote(name)
     url = f"https://steamcommunity.com/market/listings/730/{encoded_name}"
     try:
@@ -80,7 +103,7 @@ def get_history_data_steam(
                 filename = f"../data/steam/{name}.csv"
                 safe_name = filename.replace("|", "-")
                 df.to_csv(safe_name, index=False)
-                return df
+                return parse_data_by_mode(df, mode)
             except json.JSONDecodeError as e:
                 print(f"JSON解析错误: {e}")
                 return None
@@ -185,7 +208,7 @@ def get_market_name(name:str) -> str:
 if __name__ == "__main__":
     df = get_realtime_data_steam("梦魇武器箱")
     print(df,"\n")
-    df = get_history_data_steam("Dream")
+    df = get_history_data_steam("Dream", "not raw")
     print(df,"\n")
 
 
