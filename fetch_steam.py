@@ -88,49 +88,44 @@ def get_history_data_steam(
         print(f"请求失败: {e}")
         return None
 
-
 def init_market_data():
-    #本地测试中
-    def crawl_market_hash_names(appid, max_pages=100):
-        market_hash_names = []
+    def crawl_market_hash_names(max_pages=2491):
+        data_dir = "./data/steam"
+        csv_file = os.path.join(data_dir, "market_hash_name.csv")
+        os.makedirs(data_dir, exist_ok=True)
         start = 0
-        count = 100  # 每页100条
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-        }
-
         for page in range(max_pages):
-            url = f"https://steamcommunity.com/market/search/render/?appid={appid}&start={start}&count={count}&norender=1"
+            print(f"开始爬取第 {page + 1} 页数据")
+            url = f"https://steamcommunity.com/market/search/render/?query=&start={start}&count=10&search_descriptions=0&sort_column=name&sort_dir=desc&appid=730&norender=1"
             try:
                 response = requests.get(url, headers=headers)
                 response.raise_for_status()
                 data = response.json()
                 if not data["results"]:
-                    break  # 无更多数据，退出循环
-
-                # 提取当前页的 market_hash_name
+                    break
+                count = len(data["results"])
+                rows = []
                 for item in data["results"]:
-                    market_hash_names.append(item["hash_name"])
-
-                print(f"已爬取第 {page + 1} 页，累计 {len(market_hash_names)} 个物品")
+                    row={
+                        'input_name': item['name'],
+                        'market_hash_name': item['hash_name'],
+                    }
+                    rows.append(row)
+                df_new = pd.DataFrame(rows)
+                df_new.to_csv(
+                    csv_file,
+                    mode="a",  # 追加模式
+                    header=not os.path.exists(csv_file),  # 仅当文件不存在时写表头
+                    index=False,  # 不写入索引
+                    encoding="utf-8"
+                )
+                print(f"已将数据追加到 {csv_file}")
                 start += count
-                time.sleep(2)  # 控制频率，避免被封
-
+                time.sleep(1.92)  # 控制频率，避免被封
             except Exception as e:
                 print(f"第 {page + 1} 页爬取失败：{e}")
                 break
-
-        market_hash_names = list(set(market_hash_names))
-        return market_hash_names
-
-    appid = 730
-    hash_names = crawl_market_hash_names(appid, max_pages=100)
-
-    with open("cs2_market_hash_names_crawled.txt", "w", encoding="utf-8") as f:
-        for name in hash_names:
-            f.write(name + "\n")
-
-    print(f"最终获取 {len(hash_names)} 个 unique market_hash_name")
+    return crawl_market_hash_names()
 
 def get_market_name(name:str) -> str:
     # 检测文件中是否已有搜索历史
@@ -188,5 +183,6 @@ def get_market_name(name:str) -> str:
         return name
 
 if __name__ == "__main__":
-    print(get_realtime_data_steam("梦魇武器箱"))
+    init_market_data()
+
 
