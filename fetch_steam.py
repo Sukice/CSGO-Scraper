@@ -1,4 +1,3 @@
-
 import os
 from datetime import datetime
 import requests
@@ -12,9 +11,10 @@ import time
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Language': 'zh-CN,zh;q=0.9',
     'Accept-Encoding': 'gzip, deflate, br',
 }
+
 
 def get_realtime_data_steam(
         name:str = "AK-47 | Bloodsport (Factory New)"
@@ -25,20 +25,18 @@ def get_realtime_data_steam(
     response = requests.get(url, headers=headers, timeout=15)
     time.sleep(1.34)
     data = response.json()
-    url = f"https://steamcommunity.com/market/search?appid=730&q={encoded_name}"
+    url = f"https://steamcommunity.com/market/search?appid=730&q={encoded_name}&currency=23"
     response = requests.get(url, headers=headers)
     time.sleep(1.24)
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, "html.parser")
         listing_number = soup.find('span', class_='market_listing_num_listings_qty')['data-qty']
         normal_price_text = soup.find('span', class_='normal_price', attrs={'data-price': True}).get_text(strip=True)
-        print(f"在售数量：{listing_number}")
         print(f"正常价格：{normal_price_text}")
     else:
         print(f"请求失败，状态码：{response.status_code}")
 
     def parse_data(data):
-        print(data)
         filtered_data = {
             'name': name,
             'lowest_price': data['lowest_price'],
@@ -49,9 +47,6 @@ def get_realtime_data_steam(
         df = pd.DataFrame([filtered_data])
         return df
     return parse_data(data)
-
-
-
 
 
 def get_history_data_steam(
@@ -138,6 +133,7 @@ def init_market_data():
     print(f"最终获取 {len(hash_names)} 个 unique market_hash_name")
 
 def get_market_name(name:str) -> str:
+    # 检测文件中是否已有搜索历史
     def check_market_hash_name(target, csv_path="./data/steam/market_hash_name.csv"):
         if not os.path.exists(csv_path):
             return None
@@ -154,11 +150,10 @@ def get_market_name(name:str) -> str:
 
     if check_market_hash_name(name) is not None:
         return check_market_hash_name(name)
-    encoded_name = quote(name)
-    url = f'https://steamcommunity.com/market/searchsuggestionsresults?q={encoded_name}'
-    print(url)
+
+    # 如果没有，启动模糊搜索（暂时返回一个，未来优化返回列表）
+    url = f'https://steamcommunity.com/market/searchsuggestionsresults?q={name}'
     def parse_data(data):
-        print(data)
         results = data["results"]
         if results:
             first_item = results[0]
@@ -182,19 +177,16 @@ def get_market_name(name:str) -> str:
             return market_hash_name
         else:
             print(f"未找到关于{name}的数据")
-            return None
+            return name
     try:
-        response = requests.get(url, headers=headers, timeout=15)
-        time.sleep(0.64)
+        response = requests.get(url,headers=headers)
+        time.sleep(1.64)
         response.raise_for_status()
         data = response.json()
         return parse_data(data)
     except requests.RequestException as e:
         return name
 
-
-
-
 if __name__ == "__main__":
-    print(get_realtime_data_steam())
+    print(get_realtime_data_steam("梦魇武器箱"))
 
