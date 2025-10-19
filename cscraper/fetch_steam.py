@@ -8,25 +8,20 @@ import pandas as pd
 from urllib.parse import quote
 from bs4 import BeautifulSoup
 import time
+from cscraper.utils import get_random_headers
 
-headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'zh-CN,zh;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-}
 
 def get_realtime_data_steam(
         name:str = "AK-47 | Bloodsport (Factory New)"
 ):
     name = get_market_name(name.strip())
     encoded_name = quote(name.encode('utf-8'))
-    url = f"https://steamcommunity.com/market/priceoverview/?appid=730&market_hash_name={encoded_name}"
-    response = requests.get(url, headers=headers, timeout=15)
+    url = f"https://steamcommunity.com/market/priceoverview/?appid=730&currency=23&market_hash_name={encoded_name}"
+    response = requests.get(url, headers=get_random_headers(), timeout=15)
     time.sleep(1.34)
     data = response.json()
-    url = f"https://steamcommunity.com/market/search?appid=730&q={encoded_name}&currency=23"
-    response = requests.get(url, headers=headers)
+    url = f"https://steamcommunity.com/market/search?appid=730&currency=23&q={encoded_name}"
+    response = requests.get(url, headers=get_random_headers())
     time.sleep(1.24)
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, "html.parser")
@@ -54,7 +49,7 @@ def get_history_data_steam(
     def parse_data_by_mode(df, mode):
         df['price'] = pd.to_numeric(df['price'], errors='coerce')
         df['volume'] = pd.to_numeric(df['volume'], errors='coerce')
-        if mode != "raw":
+        if mode == "raw":
             df['amount'] = df['price'] * df['volume']
             date_agg = df.groupby('date', as_index=False).agg(
                 all_volume=('volume', 'sum'),  # 同一日期的 volume 总和
@@ -81,8 +76,8 @@ def get_history_data_steam(
     encoded_name = quote(name)
     url = f"https://steamcommunity.com/market/listings/730/{encoded_name}"
     try:
-        response = requests.get(url, headers=headers, timeout=15)
-        time.sleep(0.64)
+        response = requests.get(url, headers=get_random_headers(), timeout=15)
+        time.sleep(1.64)
         response.raise_for_status()
         html_content = response.text
         pattern1 = r'var line1\s*=\s*(\[\[.*?\]\]);'
@@ -162,7 +157,7 @@ def get_market_name(name:str) -> str:
             print(f"未找到关于{name}的数据")
             return name
     try:
-        response = requests.get(url,headers=headers)
+        response = requests.get(url,headers=get_random_headers())
         time.sleep(1.64)
         response.raise_for_status()
         data = response.json()
@@ -173,7 +168,7 @@ def get_market_name(name:str) -> str:
 if __name__ == "__main__":
     df = get_realtime_data_steam("梦魇武器箱")
     print(df,"\n")
-    df = get_history_data_steam("Dream", "not raw")
+    df = get_history_data_steam("Dream")
     print(df,"\n")
 
 
