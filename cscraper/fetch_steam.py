@@ -1,3 +1,4 @@
+import csv
 import os
 from datetime import datetime
 import requests
@@ -102,7 +103,7 @@ def get_history_data_steam(
                     os.makedirs("../data/steam", exist_ok=True)
                 filename = f"../data/steam/{name}.csv"
                 safe_name = filename.replace("|", "-")
-                df.to_csv(safe_name, index=False)
+                df.to_csv(safe_name, index=False, quoting=csv.QUOTE_NONNUMERIC)
                 return parse_data_by_mode(df, mode)
             except json.JSONDecodeError as e:
                 print(f"JSON解析错误: {e}")
@@ -113,23 +114,25 @@ def get_history_data_steam(
 
 def get_market_name(name:str) -> str:
     # 检测文件中是否已有搜索历史
-    def check_market_hash_name(target, csv_path="../data/steam/market_hash_name.csv"):
-        if not os.path.exists(csv_path):
+    def check_market_hash_name(target):
+        file_path = f"./database/namedata/all_name_list.csv"
+        cache_path = "../data/steam/market_hash_name.csv"
+        def check_in_file(path):
+            if not os.path.exists(path):
+                return None
+            try:
+                df = pd.read_csv(path)
+            except Exception as e:
+                return None
+            if target in df["market_hash_name"].values:
+                return target
+            if target in df["input_name"].values:
+                target_rows = df[df["input_name"] == target]
+                return str(target_rows.iloc[0]["market_hash_name"])
             return None
-        try:
-            df = pd.read_csv(csv_path)
-        except Exception as e:
-            return None
-        if target in df["market_hash_name"].values:
-            return target
-        if target in df["input_name"].values:
-            target_rows = df[df["input_name"] == target]
-            return str(target_rows.iloc[0]["market_hash_name"])
-        return None
-
+        return check_in_file(file_path) or check_in_file(cache_path)
     if not (check_market_hash_name(name) is None):
         return check_market_hash_name(name)
-
     # 如果没有，启动模糊搜索（暂时返回一个，未来优化返回列表）
     url = f'https://steamcommunity.com/market/searchsuggestionsresults?appid=730&q={name}'
     def parse_data(data):
@@ -142,7 +145,7 @@ def get_market_name(name:str) -> str:
             os.makedirs(data_dir, exist_ok=True)
             new_data = {
                 "input_name": [name],
-                "market_hash_name": [market_hash_name]
+                "market_hash_name": [market_hash_name],
             }
             df_new = pd.DataFrame(new_data)
             df_new.to_csv(
@@ -150,7 +153,8 @@ def get_market_name(name:str) -> str:
                 mode="a",
                 header=not os.path.exists(csv_file),
                 index=False,
-                encoding="utf-8"
+                encoding="utf-8",
+                quoting=csv.QUOTE_NONNUMERIC
             )
             print(f"已将数据追加到 {csv_file}")
             return market_hash_name

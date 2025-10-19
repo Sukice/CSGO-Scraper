@@ -11,3 +11,5 @@ env/
 data/
 
 .idea/
+
+database/
