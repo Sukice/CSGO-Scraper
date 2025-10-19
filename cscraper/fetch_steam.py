@@ -165,6 +165,16 @@ def get_market_name(name:str) -> str:
     except requests.RequestException as e:
         return name
 
+def brainstorm_steam(name):
+    name = get_market_name(name)
+    print(name)
+    print("近20天历史价格")
+    print("近20天指标")
+    print("情绪异动")
+    print("近30天回撤情况")
+    print("来源")
+    print("炼金原料近期走势")
+
 if __name__ == "__main__":
     df = get_realtime_data_steam("梦魇武器箱")
     print(df,"\n")
