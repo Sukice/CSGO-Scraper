@@ -68,6 +68,11 @@ def get_history_data_steam(
             })
             df = df.drop_duplicates(keep='first')
             df = df.reset_index(drop=True)
+
+            df['date'] = pd.to_datetime(df['date'], format='%Y%m%d')
+            today = datetime.today().date()
+            df = df[df['date'].dt.date < today]
+            df['date'] = df['date'].dt.strftime('%Y%m%d')
         return df
 
     name = get_market_name(name.strip())
@@ -189,17 +194,11 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
     plt.close()
 
     with open(file_path, 'a', encoding='utf-8') as f:
-        f.write("### 近期价格图表\n")
+        f.write("### 近期价格图表 (按当前IP地址选择货币单位) \n")
         f.write(f'\n![价格走势图]({chart_name})\n\n')
 
 
-
-
     df = df.tail(40)
-
-
-
-
 
     df_boll = get_boll_n(df)
     df_boll = df_boll.tail(30)
@@ -434,11 +433,10 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
         f.write("### 物品来源追踪\n")
         f.write(f"**物品来源**: {dict['root']}\n\n")
 
+
         if not 'Capsule' in dict['root']:
             f.write("### 炼金原料关联分析\n")
             f.write("*炼金原料市场走势分析待完善*\n\n")
-
-
 
     # 总结部分
     with open(file_path, 'a', encoding='utf-8') as f:

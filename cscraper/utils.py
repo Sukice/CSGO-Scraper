@@ -8,6 +8,13 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
+def up_or_no(df):
+    df = df.tail(2)
+    if len(df) < 2:
+        raise ValueError("DataFrame至少需要包含两行数据")
+    last_price = df.iloc[-1]['price']
+    second_last_price = df.iloc[-2]['price']
+    return last_price > second_last_price
 
 def get_market_name(name:str) -> str:
     # 检测文件中是否已有搜索历史
