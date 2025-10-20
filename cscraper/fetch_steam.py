@@ -214,7 +214,7 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
     # 填充上轨和下轨之间的区域，设置更柔和的颜色
     ax.fill_between(df_boll['date'], df_boll['upper'], df_boll['lower'], color='#e6f7ff', alpha=0.3)
     # 设置标题，增大字号并加粗
-    ax.set_title(f'{cn_name} - 布林带指标', fontsize=16, fontweight='bold')
+    ax.set_title(f'{cn_name} - 20日布林带指标', fontsize=16, fontweight='bold')
     # 设置坐标轴标签，增大字号
     ax.set_xlabel('日期', fontsize=12)
     ax.set_ylabel('价格', fontsize=12)
@@ -240,7 +240,7 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
         f.write("\n## 📈 技术指标分析\n\n")
         f.write("### 20日布林带指标 & 20日移动均线 (Bollinger Bands & MA20)\n")
         f.write(f'![布林带指标图]({chart_name})\n\n')
-        f.write("### 相对强弱指数 (RSI)\n")
+        f.write("### 20日相对强弱指数 (RSI20)\n")
 
     df_rsi = get_rsi_n(df)
     df_rsi = df_rsi.tail(30)
@@ -249,14 +249,8 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
     # 创建画布和子图，设置更合适的大小
     fig, ax = plt.subplots(figsize=(12, 7))
 
-    # 定义RSI线条颜色，选用更协调的配色
-    colors = {'RSI6': '#1f77b4', 'RSI12': '#ff7f0e', 'RSI24': '#2ca02c'}
-
-    # 绘制不同周期的RSI线，设置更美观的线条样式
-
-    ax.plot(df_rsi['date'], df_rsi['RSI20'], label='RSI6', color=colors['RSI6'], linewidth=2, linestyle='-',
+    ax.plot(df_rsi['date'], df_rsi['RSI20'], label='RSI6', color='#1f77b4', linewidth=2, linestyle='-',
                 marker='o', markersize=4, alpha=0.8)
-
 
     # 绘制超买超卖线，设置更柔和的样式
     ax.axhline(y=70, color='r', linestyle='--', alpha=0.6, label='超买线(70)')
@@ -265,7 +259,7 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
     ax.axhline(y=50, color='gray', linestyle='-.', alpha=0.5, label='中轨(50)')
 
     # 设置标题，增大字号并加粗
-    ax.set_title(f'{cn_name} - 相对强弱指数(RSI)', fontsize=16, fontweight='bold')
+    ax.set_title(f'{cn_name} - 20日相对强弱指数(RSI)', fontsize=16, fontweight='bold')
 
     # 设置坐标轴标签，增大字号
     ax.set_xlabel('日期', fontsize=12)
@@ -276,7 +270,7 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
 
     # 设置x轴日期格式，更细化且美观
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    ax.xaxis.set_major_locator(mdates.DayLocator(interval=2))  # 每2天显示一个刻度
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))  # 每2天显示一个刻度
     plt.xticks(rotation=30)  # 调整日期旋转角度，更易读
 
     # 添加网格，增强可读性
@@ -296,40 +290,141 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
     plt.close()
     with open(file_path, 'a', encoding='utf-8') as f:
         f.write(f'![RSI指标图]({chart_name})\n\n')
+        f.write("### 20日量比 (Volume Ratio)\n")
 
-
-    print(df_rsi)
-    df_rv = get_rv_n(df)
-    df_rv = df_rv.tail(30)
-    print(df_rv)
     df_vol_ratio = get_vol_ratio_n(df)
     df_vol_ratio = df_vol_ratio.tail(30)
-    print(df_vol_ratio)
+    df_vol_ratio['date'] = df_vol_ratio['date'] = pd.to_datetime(df_vol_ratio['date'].astype(str), format='%Y%m%d')
 
+    fig, ax = plt.subplots(figsize=(12, 7))
+    ax.plot(df_vol_ratio['date'], df_vol_ratio['VR20'], label='VR20', color='#1f77b4', linewidth=2, linestyle='-',
+            marker='o', markersize=4, alpha=0.8)
 
-    print("情绪异动")
-    df_odd = df_rv[df_rv['RV20']>=1]
+    ax.axhline(y=3, color='r', linestyle='--', alpha=0.6, label='狂热(3)')
+    ax.axhline(y=1.5, color='g', linestyle='-.', alpha=0.5, label='正常(1.5)')
+    ax.axhline(y=0.8, color='gray', linestyle='--', alpha=0.6, label='低迷(0.8)')
+
+    # 设置标题，增大字号并加粗
+    ax.set_title(f'{cn_name} - 20日量比(VR20)', fontsize=16, fontweight='bold')
+    # 设置坐标轴标签，增大字号
+    ax.set_xlabel('日期', fontsize=12)
+    ax.set_ylabel('VR值', fontsize=12)
+    # 设置图例，位置更合理且显示更美观
+    ax.legend(loc='upper left', fontsize=10, frameon=True, facecolor='white', edgecolor='gray')
+
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    plt.xticks(rotation=30)
+    ax.grid(True, linestyle='--', alpha=0.3, color='gray')
+    # 调整布局，避免元素重叠
+    plt.tight_layout()
+    # 保存图像，提高dpi让图像更清晰
+    chart_name = f"chart{count}.png"
+    chart_path = os.path.join(folder_path, chart_name)
+    plt.savefig(chart_path, dpi=150, bbox_inches='tight')
+    count += 1
+    plt.close()
+    with open(file_path, 'a', encoding='utf-8') as f:
+        f.write(f'![VR指标图]({chart_name})\n\n')
+        f.write("### 20日滚动波动率指标 (Rolling Volatility)\n")
+
+    df_rv = get_rv_n(df)
+    df_rv = df_rv.tail(30)
+    df_rv['date'] = df_rv['date'] = pd.to_datetime(df_rv['date'].astype(str), format='%Y%m%d')
+    fig, ax = plt.subplots(figsize=(12, 7))
+    ax.plot(df_rv['date'], df_rv['RV20'], label='RV20', color='#1f77b4', linewidth=2, linestyle='-',
+            marker='o', markersize=4, alpha=0.8)
+
+    # 设置标题，增大字号并加粗
+    ax.set_title(f'{cn_name} - 20日滚动波动率(RV20)', fontsize=16, fontweight='bold')
+    # 设置坐标轴标签，增大字号
+    ax.set_xlabel('日期', fontsize=12)
+    ax.set_ylabel('RV值', fontsize=12)
+    # 设置图例，位置更合理且显示更美观
+    ax.legend(loc='upper left', fontsize=10, frameon=True, facecolor='white', edgecolor='gray')
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    plt.xticks(rotation=30)
+    ax.grid(True, linestyle='--', alpha=0.3, color='gray')
+    # 调整布局，避免元素重叠
+    plt.tight_layout()
+    # 保存图像，提高dpi让图像更清晰
+    chart_name = f"chart{count}.png"
+    chart_path = os.path.join(folder_path, chart_name)
+    plt.savefig(chart_path, dpi=150, bbox_inches='tight')
+    count += 1
+    plt.close()
+    with open(file_path, 'a', encoding='utf-8') as f:
+        f.write(f'![RV20指标图]({chart_name})\n\n')
+
     with open(file_path, 'a', encoding='utf-8') as f:
         f.write("\n## 🔍 市场情绪分析\n\n")
-        f.write("### 波动率指标 (RV)\n")
-        chart_path = os.path.join(folder_path, f"chart{count}.png")
-        f.write(f'![波动率指标图]({chart_path})\n\n')
-        count += 1
-        f.write("### 情绪异动检测\n")
-        if not df_odd.empty:
-            f.write("**检测到异常波动的日期**:\n")
-            for _, row in df_odd.iterrows():
-                f.write(f"- {row['date']} (RV20: {row['RV20']:.2f})\n")
-        else:
-            f.write("**近期未检测到显著情绪异动**\n")
-        f.write("\n")
+        f.write("待更新\n\n")
 
-
-    print("近30天回撤情况")
-    drawdown = get_max_drawdown_n(df,30)
+    drawdown_result = get_max_drawdown_n(df, 30)
     with open(file_path, 'a', encoding='utf-8') as f:
         f.write("\n## ⚠️ 风险指标\n\n")
         f.write("### 最大回撤分析\n")
+        # 最大回撤详细表格
+        f.write("#### 最大回撤详细信息\n")
+        f.write("| 指标 | 数值 | 说明 |\n")
+        f.write("|------|------|------|\n")
+        f.write(f"| **最大回撤幅度** | {abs(drawdown_result['max_drawdown']):.2f}% | 从峰值到谷值的最大跌辐 |\n")
+        f.write(f"| **峰值日期** | {drawdown_result['max_drawdown_peak_date']} | 回撤开始前的最高点 |\n")
+        f.write(f"| **峰值价格** | {drawdown_result['max_drawdown_peak_price']:.2f} | 回撤开始前的最高价格 |\n")
+        f.write(f"| **谷值日期** | {drawdown_result['max_drawdown_trough_date']} | 回撤结束的最低点 |\n")
+        f.write(f"| **谷值价格** | {drawdown_result['max_drawdown_trough_price']:.2f} | 回撤结束的最低价格 |\n")
+        f.write(
+            f"| **价格下跌** | {drawdown_result['max_drawdown_peak_price'] - drawdown_result['max_drawdown_trough_price']:.2f} | 从峰值到谷值的绝对跌值 |\n")
+
+        # 回撤恢复情况表格
+        f.write("\n#### 回撤恢复情况\n")
+        f.write("| 指标 | 状态 | 说明 |\n")
+        f.write("|------|------|----------|\n")
+
+        recovery_status = "✅ 已恢复" if drawdown_result['recovery_success'] else "❌ 未恢复"
+        f.write(f"| **恢复状态** | {recovery_status} | 价格是否回到峰值水平 |\n")
+
+        if drawdown_result['recovery_success']:
+            f.write(f"| **恢复天数** | {drawdown_result['recovery_days']}天 | 从谷值恢复到峰值所需时间 |\n")
+            f.write(f"| **恢复日期** | {drawdown_result['recovery_date']} | 价格回到峰值的日期 |\n")
+        else:
+            f.write(f"| **恢复天数** | - | 尚未恢复到峰值水平 |\n")
+            f.write(f"| **恢复日期** | - | 尚未恢复到峰值水平 |\n")
+
+        # 风险等级评估
+        f.write("\n#### 风险等级评估\n")
+        f.write("| 评估维度 | 等级 | 说明 |\n")
+        f.write("|----------|------|------|\n")
+
+        # 根据回撤幅度评估风险等级
+        drawdown_percent = abs(drawdown_result['max_drawdown'])
+        if drawdown_percent < 5:
+            risk_level = "🟢 低风险"
+            risk_desc = "回撤幅度较小，风险可控"
+        elif drawdown_percent < 10:
+            risk_level = "🟡 中风险"
+            risk_desc = "回撤幅度适中，需关注"
+        elif drawdown_percent < 20:
+            risk_level = "🟠 高风险"
+            risk_desc = "回撤幅度较大，谨慎操作"
+        else:
+            risk_level = "🔴 极高风险"
+            risk_desc = "回撤幅度很大，风险极高"
+
+        f.write(f"| **回撤风险** | {risk_level} | {risk_desc} |\n")
+
+        # 根据恢复情况评估流动性风险
+        if drawdown_result['recovery_success']:
+            liquidity_risk = "🟢 流动性良好"
+            liquidity_desc = "价格能够快速恢复，流动性较好"
+        else:
+            liquidity_risk = "🟡 流动性一般"
+            liquidity_desc = "价格恢复较慢，流动性需关注"
+
+        f.write(f"| **流动性风险** | {liquidity_risk} | {liquidity_desc} |\n")
+
+        f.write("\n")
 
 
 
@@ -361,7 +456,7 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
 
         f.write("---\n")
         f.write("\n**报告生成完成**\n")
-        f.write(f"*生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
+        f.write(f" *生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
 
     print(f"报告已生成: {file_path}")
 

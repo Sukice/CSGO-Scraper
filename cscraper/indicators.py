@@ -52,7 +52,7 @@ def get_max_drawdown_n(df, n=90):
     df['date'] = df['date'].astype(str)
     df = df[df['date'] >= target_date.strftime("%Y%m%d")].copy()
     df['cum_max'] = df['price'].cummax()
-    df['drawdown'] = df['price'] - df['cum_max']
+    df['drawdown'] = (df['price'] - df['cum_max']) / df['cum_max'] * 100
     max_drawdown = df['drawdown'].min()
     trough_idx = df['drawdown'].idxmin()
     peak_idx = df.loc[:trough_idx, 'cum_max'].idxmax()
@@ -67,11 +67,11 @@ def get_max_drawdown_n(df, n=90):
         recovery_days = (recovery_date_data['date'] - df['date'][trough_idx]).days
         recovery_date = recovery_date_data['date']
     result = {
-        'max_drawdown': float(max_drawdown),
+        'max_drawdown': round(float(max_drawdown),2),
         'max_drawdown_peak_date': str(df['date'][peak_idx]),
-        'max_drawdown_peak_price': float(df['price'][peak_idx]),
+        'max_drawdown_peak_price': round(float(df['price'][peak_idx]),2),
         'max_drawdown_trough_date': str(df['date'][trough_idx]),
-        'max_drawdown_trough_price': float(df['price'][trough_idx]),
+        'max_drawdown_trough_price': round(float(df['price'][trough_idx]),2),
         'recovery_success': bool(recovery_success),
         'recovery_days': int(recovery_days) if recovery_days is not None else None,
         'recovery_date': str(recovery_date.date()) if recovery_date is not None else None,
