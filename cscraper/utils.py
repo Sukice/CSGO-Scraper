@@ -9,6 +9,65 @@ import requests
 from bs4 import BeautifulSoup
 
 
+def get_market_name(name:str) -> str:
+    # 检测文件中是否已有搜索历史
+    def check_market_hash_name(target):
+        file_path = f"./database/namedata/all_name_list.csv"
+        cache_path = "../data/steam/market_hash_name.csv"
+        def check_in_file(path):
+            if not os.path.exists(path):
+                return None
+            try:
+                df = pd.read_csv(path)
+            except Exception as e:
+                return None
+            if target in df["market_hash_name"].values:
+                return target
+            if target in df["input_name"].values:
+                target_rows = df[df["input_name"] == target]
+                return str(target_rows.iloc[0]["market_hash_name"])
+            return None
+        return check_in_file(file_path) or check_in_file(cache_path)
+    if not (check_market_hash_name(name) is None):
+        return check_market_hash_name(name)
+    # 如果没有，启动模糊搜索（暂时返回一个，未来优化返回列表）
+    url = f'https://steamcommunity.com/market/searchsuggestionsresults?appid=730&q={name}'
+    def parse_data(data):
+        results = data["results"]
+        if results:
+            first_item = results[0]
+            market_hash_name = first_item["market_hash_name"]
+            data_dir = "../data/steam"
+            csv_file = os.path.join(data_dir, "market_hash_name.csv")
+            os.makedirs(data_dir, exist_ok=True)
+            new_data = {
+                "input_name": [name],
+                "market_hash_name": [market_hash_name],
+            }
+            df_new = pd.DataFrame(new_data)
+            df_new.to_csv(
+                csv_file,
+                mode="a",
+                header=not os.path.exists(csv_file),
+                index=False,
+                encoding="utf-8",
+                quoting=csv.QUOTE_NONNUMERIC
+            )
+            print(f"已将数据追加到 {csv_file}")
+            return market_hash_name
+        else:
+            print(f"未找到关于{name}的数据")
+            return name
+    try:
+        response = requests.get(url,headers=get_random_headers())
+        time.sleep(1.64)
+        response.raise_for_status()
+        data = response.json()
+        return parse_data(data)
+    except requests.RequestException as e:
+        return name
+
+
 def crawl_search_list(file_path, max_pages=10, require=""):
     start = 0
     for page in range(max_pages):
@@ -158,5 +217,56 @@ def init_database_casecontent():
                                 print(f"数据结构错误: {e}")
                                 print(url)
 
+def convert_hash_to_ch(name):
+    file_path = f"./database/namedata/all_name_list.csv"
+    if os.path.exists(file_path):
+        df = pd.read_csv(file_path)
+        if df['input_name'].str.strip().eq(name).any():
+            return name
+        if df['market_hash_name'].str.strip().eq(name).any():
+            return df[df['market_hash_name'].str.strip() == name]['input_name'].values[0]
+        else:
+            print("no matching name")
+    else:
+        print("error")
+    return name
+
+
+
+
+#目前仅支持武器箱收藏品寻亲寻根
+def find_root(name):
+    name = get_market_name(name)
+    name = convert_hash_to_ch(name)
+    name = name.split("（")[0].strip()
+    folder_path = "database/casedata/case_content"
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.csv'):
+            file_path = os.path.join(folder_path, filename)
+            df = pd.read_csv(file_path)
+            if (df.iloc[:, 0].str.strip() == name.strip()).any():
+                filename = filename.replace('.csv', '')
+                result_dict = {}
+                for index, row in df.iterrows():
+                    key = row.iloc[1]
+                    value = row.iloc[0]
+                    if value == name:
+                        continue
+                    if key not in result_dict:
+                        result_dict[key] = []
+                    result_dict[key].append(value)
+                dict = {
+                    "root": filename,
+                    "type": df[df['name']==name]['rarity'].values[0],
+                    "brothers":result_dict,
+                }
+                return dict
+    dict = {
+        "root": None,
+        "type": None,
+        "brothers": {},
+    }
+    return dict
+
 if __name__ == "__main__":
-    init_database_namedata_all()
+    print(find_root("Aces High Pin"))

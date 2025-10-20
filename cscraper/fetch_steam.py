@@ -1,6 +1,6 @@
 import csv
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 import re
 import json
@@ -8,7 +8,9 @@ import pandas as pd
 from urllib.parse import quote
 from bs4 import BeautifulSoup
 import time
-from cscraper.utils import get_random_headers
+
+from cscraper.indicators import *
+from cscraper.utils import get_random_headers, get_market_name, find_root, convert_hash_to_ch
 
 
 def get_realtime_data_steam(
@@ -106,79 +108,153 @@ def get_history_data_steam(
     except requests.RequestException as e:
         print(f"请求失败: {e}")
         return None
-
-def get_market_name(name:str) -> str:
-    # 检测文件中是否已有搜索历史
-    def check_market_hash_name(target):
-        file_path = f"./database/namedata/all_name_list.csv"
-        cache_path = "../data/steam/market_hash_name.csv"
-        def check_in_file(path):
-            if not os.path.exists(path):
-                return None
-            try:
-                df = pd.read_csv(path)
-            except Exception as e:
-                return None
-            if target in df["market_hash_name"].values:
-                return target
-            if target in df["input_name"].values:
-                target_rows = df[df["input_name"] == target]
-                return str(target_rows.iloc[0]["market_hash_name"])
-            return None
-        return check_in_file(file_path) or check_in_file(cache_path)
-    if not (check_market_hash_name(name) is None):
-        return check_market_hash_name(name)
-    # 如果没有，启动模糊搜索（暂时返回一个，未来优化返回列表）
-    url = f'https://steamcommunity.com/market/searchsuggestionsresults?appid=730&q={name}'
-    def parse_data(data):
-        results = data["results"]
-        if results:
-            first_item = results[0]
-            market_hash_name = first_item["market_hash_name"]
-            data_dir = "../data/steam"
-            csv_file = os.path.join(data_dir, "market_hash_name.csv")
-            os.makedirs(data_dir, exist_ok=True)
-            new_data = {
-                "input_name": [name],
-                "market_hash_name": [market_hash_name],
-            }
-            df_new = pd.DataFrame(new_data)
-            df_new.to_csv(
-                csv_file,
-                mode="a",
-                header=not os.path.exists(csv_file),
-                index=False,
-                encoding="utf-8",
-                quoting=csv.QUOTE_NONNUMERIC
-            )
-            print(f"已将数据追加到 {csv_file}")
-            return market_hash_name
-        else:
-            print(f"未找到关于{name}的数据")
-            return name
-    try:
-        response = requests.get(url,headers=get_random_headers())
-        time.sleep(1.64)
-        response.raise_for_status()
-        data = response.json()
-        return parse_data(data)
-    except requests.RequestException as e:
-        return name
-
-def brainstorm_steam(name):
+import matplotlib.pyplot as plt
+def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
     name = get_market_name(name)
-    print(name)
-    print("近20天历史价格")
-    print("近20天指标")
+    count = 0
+    filename = f"brainstorm_steam_of_{name}_{datetime.now().strftime('%Y%m%d')}.md"
+    file_path = os.path.join(folder_path, filename)
+
+    # 初始化
+    with open(file_path, 'w', encoding='utf-8') as f:
+        pass
+
+    # 表头
+    with open(file_path, 'a', encoding='utf-8') as f:
+        cn_name = convert_hash_to_ch(name)
+        f.write('\n# Brainstorm: \"' + cn_name + '\" (Steam)\n')
+        f.write('\n---\n')
+        f.write(f'\n**报告日期**: {datetime.now().strftime('%Y-%m-%d')}\n\n')
+        f.write("**数据来源**: Steam市场\n\n")
+        f.write("**分析周期**: 最近30天\n\n")
+
+
+    # 价格分析
+    with open(file_path, 'a', encoding='utf-8') as f:
+        f.write("\n---\n")
+        f.write("\n## 📊 价格走势分析\n\n")
+    df = get_history_data_steam(name)
+    df_copy = df.tail(30).copy()
+    df_copy['date'] = pd.to_datetime(df_copy['date'].astype(str), format='%Y%m%d')
+    plt.figure(figsize=(8, 4))
+    df_copy.plot(x='date', y='price', kind='line')
+    plt.tight_layout()
+    chart_path = os.path.join(folder_path, f"chart{count}.png")
+    plt.savefig(f'{chart_path}', dpi=100, bbox_inches='tight')
+    count += 1
+    plt.close()
+    with open(file_path, 'a', encoding='utf-8') as f:
+        df_realtime = get_realtime_data_steam(name)
+        f.write("### 今日实时行情\n")
+        if not df_realtime.empty:
+            f.write("| 价格 | 成交量 | 价格 | 价格 |\n")
+            f.write("|------|--------|------|------|\n")
+            for _, row in df_realtime.iterrows():
+                f.write(f"| {row['median_price']} | {row['volume']} | {row['lowest_price']} | {row['number']} |\n")
+        f.write("\n")
+
+        f.write("### 近期价格图表\n")
+        f.write(f'\n![价格走势图]({chart_path})\n')
+
+    df = df.tail(40)
+
+    print("近30天指标")
+    df_ma = get_ma_n(df)
+    df_ma = df_ma.tail(30)
+    print(df_ma)
+    df_rsi = get_rsi_n(df)
+    df_rsi = df_rsi.tail(30)
+    print(df_rsi)
+    df_rv = get_rv_n(df)
+    df_rv = df_rv.tail(30)
+    print(df_rv)
+    df_vol_ratio =  get_vol_ratio_n(df)
+    df_vol_ratio = df_vol_ratio.tail(30)
+    print(df_vol_ratio)
+
+
+
+    df_boll = get_boll_n(df)
+    df_boll = df_boll.tail(30)
+    plt.figure(figsize=(10, 6))
+    plt.plot(df_boll['date'], df_boll['upper'], label='上轨', alpha=0.7)
+    plt.plot(df_boll['date'], df_boll['mid'], label='中轨', alpha=0.7)
+    plt.plot(df_boll['date'], df_boll['lower'], label='下轨', alpha=0.7)
+    plt.fill_between(df_boll['date'], df_boll['upper'], df_boll['lower'], alpha=0.2)
+    plt.title(f'{cn_name} - 布林带指标')
+    plt.legend()
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    chart_path = os.path.join(folder_path, f"chart{count}.png")
+    plt.savefig(chart_path, dpi=100, bbox_inches='tight')
+    count += 1
+    plt.close()
+
+    with open(file_path, 'a', encoding='utf-8') as f:
+        f.write("### 布林带指标 (Bollinger Bands)\n")
+        f.write(f'![布林带指标图]({chart_path})\n\n')
+
     print("情绪异动")
+    df_odd = df_rv[df_rv['RV20']>=1]
+    with open(file_path, 'a', encoding='utf-8') as f:
+        f.write("\n## 🔍 市场情绪分析\n\n")
+        f.write("### 波动率指标 (RV)\n")
+        chart_path = os.path.join(folder_path, f"chart{count}.png")
+        f.write(f'![波动率指标图]({chart_path})\n\n')
+        count += 1
+        f.write("### 情绪异动检测\n")
+        if not df_odd.empty:
+            f.write("**检测到异常波动的日期**:\n")
+            for _, row in df_odd.iterrows():
+                f.write(f"- {row['date']} (RV20: {row['RV20']:.2f})\n")
+        else:
+            f.write("**近期未检测到显著情绪异动**\n")
+        f.write("\n")
+
+
     print("近30天回撤情况")
-    print("来源")
-    print("炼金原料近期走势")
+    drawdown = get_max_drawdown_n(df,30)
+    with open(file_path, 'a', encoding='utf-8') as f:
+        f.write("\n## ⚠️ 风险指标\n\n")
+        f.write("### 最大回撤分析\n")
+
+
+
+    dict = find_root(name)
+    with open(file_path, 'a', encoding='utf-8') as f:
+        f.write("\n## 🔗 市场关联分析\n\n")
+        f.write("### 物品来源追踪\n")
+        f.write(f"**物品来源**: {dict['root']}\n\n")
+
+        if not 'Capsule' in dict['root']:
+            f.write("### 炼金原料关联分析\n")
+            f.write("*炼金原料市场走势分析待完善*\n\n")
+
+
+
+    # 总结部分
+    with open(file_path, 'a', encoding='utf-8') as f:
+        f.write("\n## 💡 投资建议\n\n")
+        f.write("### 短期展望 (1-7天)\n")
+        f.write("*基于技术指标的短期分析待完善*\n\n")
+
+        f.write("### 中期展望 (7-30天)\n")
+        f.write("*基于趋势和基本面的中期分析待完善*\n\n")
+
+        f.write("### 风险提示\n")
+        f.write("1. 市场波动风险\n")
+        f.write("2. 流动性风险\n")
+        f.write("3. 政策风险\n\n")
+
+        f.write("---\n")
+        f.write("\n**报告生成完成**\n")
+        f.write(f"*生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
+
+    print(f"报告已生成: {file_path}")
 
 if __name__ == "__main__":
-    df = get_realtime_data_steam("梦魇武器箱")
-    print(df,"\n")
-    df = get_history_data_steam("Dream")
-    print(df,"\n")
+    brainstorm_steam("Aces High Pin")
 
 
