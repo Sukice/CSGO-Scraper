@@ -8,13 +8,6 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-def up_or_no(df):
-    df = df.tail(2)
-    if len(df) < 2:
-        raise ValueError("DataFrame至少需要包含两行数据")
-    last_price = df.iloc[-1]['price']
-    second_last_price = df.iloc[-2]['price']
-    return last_price > second_last_price
 
 def get_market_name(name:str) -> str:
     # 检测文件中是否已有搜索历史
@@ -42,8 +35,24 @@ def get_market_name(name:str) -> str:
     def parse_data(data):
         results = data["results"]
         if results:
-            first_item = results[0]
-            market_hash_name = first_item["market_hash_name"]
+            def match_result(results, name):
+                dict_result = {}
+                lower_name = name.lower()
+                for item in results:
+                    score = 0
+                    name_copy = item["market_hash_name"]
+                    name_to_analyse = item["market_hash_name"].lower()
+                    for i in lower_name:
+                        for j in name_to_analyse:
+                            if i == j:
+                                score += 1
+                                continue
+                            else:
+                                score -= 0.1
+                    dict_result[name_copy] = score
+                return max(dict_result, key=dict_result.get)
+
+            market_hash_name = match_result(results, name)
             data_dir = "../data/steam"
             csv_file = os.path.join(data_dir, "market_hash_name.csv")
             os.makedirs(data_dir, exist_ok=True)
@@ -75,17 +84,15 @@ def get_market_name(name:str) -> str:
         return name
 
 
-def crawl_search_list(file_path, max_pages=10, require=""):
-    start = 0
-    for page in range(max_pages):
-        print(f"开始爬取第 {page + 1} 页/ {max_pages} 页数据")
+def crawl_search_list(file_path, start=0, require=""):
+    for page in range(2492):
+        print(f"开始爬取第 {start} 条数据")
         url = f"https://steamcommunity.com/market/search/render/?query=&start={start}&count=10&search_descriptions=0&sort_column=name&sort_dir=desc&appid=730&norender=1"+require
         try:
 
             response = requests.get(url, headers=get_random_headers())
             response.raise_for_status()
             data = response.json()
-            print(data)
             if not data["results"]:
                 break
             count = len(data["results"])
@@ -108,25 +115,25 @@ def crawl_search_list(file_path, max_pages=10, require=""):
             )
             print(f"已将数据追加到 {file_path}")
             start += count
-            time.sleep(5)  # 控制频率，避免被封
+            time.sleep(7.8)  # 控制频率，避免被封
         except Exception as e:
-            print(f"第 {page + 1} 页爬取失败：{e}")
+            print(f"第 {start} 条数据爬取失败：{e}")
             break
 
 
-def init_database_namedata_all():
+def init_database_namedata_all(start):
     data_dir = "./database/namedata"
     csv_file = os.path.join(data_dir, "all_name_list.csv")
     os.makedirs(data_dir, exist_ok=True)
-    return crawl_search_list(csv_file, 2492)
+    return crawl_search_list(csv_file, start)
 
-def init_database_namedata_case():
+def init_database_namedata_case(start):
     print("开始初始化箱子列表，请勿中途退出")
     data_dir = "./database/namedata"
     csv_file = os.path.join(data_dir, "case_name_list.csv")
     os.makedirs(data_dir, exist_ok=True)
     require = "&category_730_Type%5B%5D=tag_CSGO_Type_WeaponCase"
-    return crawl_search_list(csv_file, 44, require)
+    return crawl_search_list(csv_file, start, require)
 
 
 import random
@@ -169,11 +176,13 @@ def get_random_headers():
     }
     return headers
 color_to_rarity = {
-    '4b69ff': '消费级',  # 蓝色 - 普通
-    '8847ff': '工业级',  # 紫色 - 工业级
-    'd32ce6': '保密',  # 粉色 - 军规级
-    'eb4b4b': '受限',  # 红色 - 受限
-    'ffd700': '隐秘'  # 金色 - 隐秘
+    'b0c3d9': 0,  # 灰色
+    '5e98d9': 1,  # 浅蓝
+    '4b69ff': 2,  # 深蓝色
+    '8847ff': 3,  # 紫色
+    'd32ce6': 4,  # 粉色
+    'eb4b4b': 5,  # 红色
+    'ffd700': 6,  # 金色
 }
 def init_database_casecontent():
     if not os.path.exists("./database/namedata/case_name_list.csv"):
@@ -189,8 +198,15 @@ def init_database_casecontent():
         else:
             continue
         url = "https://steamcommunity.com/market/listings/730/"+case_name
-        response = requests.get(url, headers=get_random_headers())
-        time.sleep(5)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",  # 优先英文（美国），其次通用英文
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive"
+        }
+        response = requests.get(url, headers=headers)
+        time.sleep(3)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
             scripts = soup.find_all('script')
@@ -224,6 +240,7 @@ def init_database_casecontent():
                                 print(f"数据结构错误: {e}")
                                 print(url)
 
+"""
 def convert_hash_to_ch(name):
     file_path = f"./database/namedata/all_name_list.csv"
     if os.path.exists(file_path):
@@ -233,25 +250,24 @@ def convert_hash_to_ch(name):
         if df['market_hash_name'].str.strip().eq(name).any():
             return df[df['market_hash_name'].str.strip() == name]['input_name'].values[0]
         else:
-            print("no matching name")
+            print("该名称为标准库没有的名称，物品来源追踪不准确")
+
     else:
         print("error")
     return name
-
+"""
 
 
 
 #目前仅支持武器箱收藏品寻亲寻根
 def find_root(name):
     name = get_market_name(name)
-    name = convert_hash_to_ch(name)
-    name = name.split("（")[0].strip()
     folder_path = "database/casedata/case_content"
     for filename in os.listdir(folder_path):
         if filename.endswith('.csv'):
             file_path = os.path.join(folder_path, filename)
             df = pd.read_csv(file_path)
-            if (df.iloc[:, 0].str.strip() == name.strip()).any():
+            if (df.iloc[:, 0].str.strip().apply(lambda x: x in name.strip())).any():
                 filename = filename.replace('.csv', '')
                 result_dict = {}
                 for index, row in df.iterrows():
@@ -264,7 +280,7 @@ def find_root(name):
                     result_dict[key].append(value)
                 dict = {
                     "root": filename,
-                    "type": df[df['name']==name]['rarity'].values[0],
+                    "type": df[df['name'].apply(lambda x: x.strip() in name.strip())]['rarity'].values[0],
                     "brothers":result_dict,
                 }
                 return dict
@@ -276,4 +292,4 @@ def find_root(name):
     return dict
 
 if __name__ == "__main__":
-    print(find_root("Aces High Pin"))
+    init_database_casecontent()

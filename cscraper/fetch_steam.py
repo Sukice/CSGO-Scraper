@@ -8,41 +8,41 @@ import pandas as pd
 from urllib.parse import quote
 from bs4 import BeautifulSoup
 import time
-
+from cscraper.csplot import plot_boll, plot_rsi, plot_vr, plot_rv
 from cscraper.indicators import *
-from cscraper.utils import get_random_headers, get_market_name, find_root, convert_hash_to_ch
+from cscraper.utils import get_random_headers, get_market_name, find_root
 
 
 def get_realtime_data_steam(
         name:str = "AK-47 | Bloodsport (Factory New)"
 ):
     name = get_market_name(name.strip())
-    encoded_name = quote(name.encode('utf-8'))
+    encoded_name = quote(name)
     url = f"https://steamcommunity.com/market/priceoverview/?appid=730&currency=23&market_hash_name={encoded_name}"
     response = requests.get(url, headers=get_random_headers(), timeout=15)
     time.sleep(1.34)
-    data = response.json()
-    url = f"https://steamcommunity.com/market/search?appid=730&currency=23&q={encoded_name}"
-    response = requests.get(url, headers=get_random_headers())
+    raw_data = response.json()
+    url = f"https://steamcommunity.com/market/search?appid=730&q={encoded_name}"
+    response = requests.get(url, headers=get_random_headers(), timeout=15)
     time.sleep(1.24)
+    listing_number = 0
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, "html.parser")
         listing_number = soup.find('span', class_='market_listing_num_listings_qty')['data-qty']
-        normal_price_text = soup.find('span', class_='normal_price', attrs={'data-price': True}).get_text(strip=True)
-        print(f"正常价格：{normal_price_text}")
     else:
-        print(f"请求失败，状态码：{response.status_code}")
-    def parse_data(data):
+        print(f"请求失败，状态码：{response.status_code}，请稍后尝试")
+        print(url)
+    def parse_data(data, number):
         filtered_data = {
             'name': name,
-            'lowest_price': data['lowest_price'],
-            'volume': data['volume'],
-            'median_price': data['median_price'],
-            'number': listing_number,
+            'lowest_price': data.get('lowest_price', "-"),
+            'volume': data.get('volume', "-"),
+            'median_price': data.get('median_price', "-"),
+            'number': number if number!=0 else "-",
         }
         df = pd.DataFrame([filtered_data])
         return df
-    return parse_data(data)
+    return parse_data(raw_data, listing_number)
 
 def get_history_data_steam(
         name:str = "Dreams & Nightmares Case",
@@ -83,6 +83,15 @@ def get_history_data_steam(
     encoded_name = quote(name)
     url = f"https://steamcommunity.com/market/listings/730/{encoded_name}"
     try:
+        """
+        # cookies待完善(未来新增登录功能)
+        cookies = {
+            'Steam_Language': 'schinese',
+            'steamCountry': 'CN%7Cxxxxxxxxxxxxxxxxxxxxxxxx',  # 改为中国
+            'timezoneName': 'Asia/Shanghai',  # 可选：改为中国时区
+            'timezoneOffset': '28800,0'
+        }
+        """
         response = requests.get(url, headers=get_random_headers(), timeout=15)
         time.sleep(1.64)
         response.raise_for_status()
@@ -119,9 +128,11 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 plt.rcParams["font.family"] = ["SimHei"]
 plt.rcParams["axes.unicode_minus"] = False
+
 def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
     name = get_market_name(name).strip()
     file_name = name.replace(" ", "_")
+    file_name = file_name.replace("|", "_")
     folder_path = os.path.join(folder_path, f"brainstorm_steam_of_{file_name}_{datetime.now().strftime('%Y%m%d')}")
     folder_path = os.path.normpath(folder_path)
     if not os.path.exists(folder_path):
@@ -136,8 +147,7 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
 
     # 表头
     with open(file_path, 'a', encoding='utf-8') as f:
-        cn_name = convert_hash_to_ch(name)
-        f.write('\n# Brainstorm: \"' + cn_name + '\" ( Steam )\n')
+        f.write('\n# Brainstorm: \"' + name + '\" ( Steam )\n')
         f.write('\n---\n')
         f.write(f'\n**报告日期**: {datetime.now().strftime('%Y-%m-%d')}\n\n')
         f.write("**数据来源**: Steam市场\n\n")
@@ -167,7 +177,7 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
     # 上图：价格走势线图
     ax1.plot(df_history['date'], df_history['price'], color='#2E86AB', linewidth=2, marker='o', markersize=4)
     ax1.set_ylabel('价格', fontsize=13)
-    ax1.set_title(f'{cn_name} - 近期价格与成交量分析', fontsize=16, fontweight='bold')
+    ax1.set_title(f'近期价格与成交量分析', fontsize=16, fontweight='bold')
     ax1.grid(True, alpha=0.4)
     ax1.tick_params(axis='both', labelsize=11)
     # 下图：成交量直方图
@@ -194,165 +204,54 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
     plt.close()
 
     with open(file_path, 'a', encoding='utf-8') as f:
-        f.write("### 近期价格图表 (按当前IP地址选择货币单位) \n")
+        f.write("### 近期价格图表 (未登录状态下货币单位为美元) \n")
         f.write(f'\n![价格走势图]({chart_name})\n\n')
-
 
     df = df.tail(40)
 
     df_boll = get_boll_n(df)
     df_boll = df_boll.tail(30)
-    df_boll['date'] = pd.to_datetime(df_boll['date'].astype(str), format='%Y%m%d')
-    # 创建画布和子图，设置更合适的大小
-    fig, ax = plt.subplots(figsize=(12, 7))
-    # 绘制上轨、中轨、下轨，设置更美观的颜色和线条样式
-    ax.plot(df_boll['date'], df_boll['upper'], label='上轨', color='#1f77b4', linewidth=2, linestyle='-')
-    ax.plot(df_boll['date'], df_boll['mid'], label='中轨/MA20', color='#ff7f0e', linewidth=2, linestyle='-')
-    ax.plot(df_boll['date'], df_boll['lower'], label='下轨', color='#2ca02c', linewidth=2, linestyle='-')
-    ax.plot(df_history['date'], df_history['price'], label='实际价格', color='#d62728', linewidth=2, linestyle='-')
-    # 填充上轨和下轨之间的区域，设置更柔和的颜色
-    ax.fill_between(df_boll['date'], df_boll['upper'], df_boll['lower'], color='#e6f7ff', alpha=0.3)
-    # 设置标题，增大字号并加粗
-    ax.set_title(f'{cn_name} - 20日布林带指标', fontsize=16, fontweight='bold')
-    # 设置坐标轴标签，增大字号
-    ax.set_xlabel('日期', fontsize=12)
-    ax.set_ylabel('价格', fontsize=12)
-    # 设置图例，位置更合理
-    ax.legend(loc='upper left', fontsize=10)
-    # 设置x轴日期格式，更细化且美观
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))  # 每2天显示一个刻度
-    plt.xticks(rotation=30)  # 调整日期旋转角度，更易读
-    # 添加网格，增强可读性
-    ax.grid(True, linestyle='--', alpha=0.5)
-    # 调整布局，避免元素重叠
-    plt.tight_layout()
-
-    # 保存图像
     chart_name = f"chart{count}.png"
     chart_path = os.path.join(folder_path, chart_name)
-    plt.savefig(chart_path, dpi=150, bbox_inches='tight')  # 提高dpi，让图像更清晰
+    plot_boll(df_boll, chart_path, mode="compare", df_history=df_history)
     count += 1
-    plt.close()
 
     with open(file_path, 'a', encoding='utf-8') as f:
         f.write("\n## 📈 技术指标分析\n\n")
-        f.write("### 20日布林带指标 & 20日移动均线 (Bollinger Bands & MA20)\n")
+        f.write("### 20日布林带指标 & 20日移动均线 (Boll & MA20)\n")
         f.write(f'![布林带指标图]({chart_name})\n\n')
         f.write("### 20日相对强弱指数 (RSI20)\n")
 
     df_rsi = get_rsi_n(df)
     df_rsi = df_rsi.tail(30)
-    df_rsi['date'] = pd.to_datetime(df_rsi['date'].astype(str), format='%Y%m%d')
 
-    # 创建画布和子图，设置更合适的大小
-    fig, ax = plt.subplots(figsize=(12, 7))
-
-    ax.plot(df_rsi['date'], df_rsi['RSI20'], label='RSI6', color='#1f77b4', linewidth=2, linestyle='-',
-                marker='o', markersize=4, alpha=0.8)
-
-    # 绘制超买超卖线，设置更柔和的样式
-    ax.axhline(y=70, color='r', linestyle='--', alpha=0.6, label='超买线(70)')
-    ax.axhline(y=30, color='g', linestyle='--', alpha=0.6, label='超卖线(30)')
-    # 绘制50中轨线，辅助判断趋势
-    ax.axhline(y=50, color='gray', linestyle='-.', alpha=0.5, label='中轨(50)')
-
-    # 设置标题，增大字号并加粗
-    ax.set_title(f'{cn_name} - 20日相对强弱指数(RSI)', fontsize=16, fontweight='bold')
-
-    # 设置坐标轴标签，增大字号
-    ax.set_xlabel('日期', fontsize=12)
-    ax.set_ylabel('RSI值', fontsize=12)
-
-    # 设置图例，位置更合理且显示更美观
-    ax.legend(loc='upper left', fontsize=10, frameon=True, facecolor='white', edgecolor='gray')
-
-    # 设置x轴日期格式，更细化且美观
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))  # 每2天显示一个刻度
-    plt.xticks(rotation=30)  # 调整日期旋转角度，更易读
-
-    # 添加网格，增强可读性
-    ax.grid(True, linestyle='--', alpha=0.3, color='gray')
-
-    # 设置y轴范围，让图表更紧凑
-    ax.set_ylim(0, 100)
-
-    # 调整布局，避免元素重叠
-    plt.tight_layout()
-
-    # 保存图像，提高dpi让图像更清晰
     chart_name = f"chart{count}.png"
     chart_path = os.path.join(folder_path, chart_name)
-    plt.savefig(chart_path, dpi=150, bbox_inches='tight')
+    plot_rsi(df_rsi, chart_path)
     count += 1
-    plt.close()
+
     with open(file_path, 'a', encoding='utf-8') as f:
         f.write(f'![RSI指标图]({chart_name})\n\n')
-        f.write("### 20日量比 (Volume Ratio)\n")
+        f.write("### 20日量比 (VR20)\n")
 
     df_vol_ratio = get_vol_ratio_n(df)
     df_vol_ratio = df_vol_ratio.tail(30)
-    df_vol_ratio['date'] = df_vol_ratio['date'] = pd.to_datetime(df_vol_ratio['date'].astype(str), format='%Y%m%d')
-
-    fig, ax = plt.subplots(figsize=(12, 7))
-    ax.plot(df_vol_ratio['date'], df_vol_ratio['VR20'], label='VR20', color='#1f77b4', linewidth=2, linestyle='-',
-            marker='o', markersize=4, alpha=0.8)
-
-    ax.axhline(y=3, color='r', linestyle='--', alpha=0.6, label='狂热(3)')
-    ax.axhline(y=1.5, color='g', linestyle='-.', alpha=0.5, label='正常(1.5)')
-    ax.axhline(y=0.8, color='gray', linestyle='--', alpha=0.6, label='低迷(0.8)')
-
-    # 设置标题，增大字号并加粗
-    ax.set_title(f'{cn_name} - 20日量比(VR20)', fontsize=16, fontweight='bold')
-    # 设置坐标轴标签，增大字号
-    ax.set_xlabel('日期', fontsize=12)
-    ax.set_ylabel('VR值', fontsize=12)
-    # 设置图例，位置更合理且显示更美观
-    ax.legend(loc='upper left', fontsize=10, frameon=True, facecolor='white', edgecolor='gray')
-
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-    plt.xticks(rotation=30)
-    ax.grid(True, linestyle='--', alpha=0.3, color='gray')
-    # 调整布局，避免元素重叠
-    plt.tight_layout()
-    # 保存图像，提高dpi让图像更清晰
     chart_name = f"chart{count}.png"
     chart_path = os.path.join(folder_path, chart_name)
-    plt.savefig(chart_path, dpi=150, bbox_inches='tight')
+    plot_vr(df_vol_ratio, chart_path)
     count += 1
-    plt.close()
+
     with open(file_path, 'a', encoding='utf-8') as f:
         f.write(f'![VR指标图]({chart_name})\n\n')
-        f.write("### 20日滚动波动率指标 (Rolling Volatility)\n")
+        f.write("### 20日滚动波动率指标 (RV20)\n")
 
     df_rv = get_rv_n(df)
     df_rv = df_rv.tail(30)
-    df_rv['date'] = df_rv['date'] = pd.to_datetime(df_rv['date'].astype(str), format='%Y%m%d')
-    fig, ax = plt.subplots(figsize=(12, 7))
-    ax.plot(df_rv['date'], df_rv['RV20'], label='RV20', color='#1f77b4', linewidth=2, linestyle='-',
-            marker='o', markersize=4, alpha=0.8)
-
-    # 设置标题，增大字号并加粗
-    ax.set_title(f'{cn_name} - 20日滚动波动率(RV20)', fontsize=16, fontweight='bold')
-    # 设置坐标轴标签，增大字号
-    ax.set_xlabel('日期', fontsize=12)
-    ax.set_ylabel('RV值', fontsize=12)
-    # 设置图例，位置更合理且显示更美观
-    ax.legend(loc='upper left', fontsize=10, frameon=True, facecolor='white', edgecolor='gray')
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-    plt.xticks(rotation=30)
-    ax.grid(True, linestyle='--', alpha=0.3, color='gray')
-    # 调整布局，避免元素重叠
-    plt.tight_layout()
-    # 保存图像，提高dpi让图像更清晰
     chart_name = f"chart{count}.png"
     chart_path = os.path.join(folder_path, chart_name)
-    plt.savefig(chart_path, dpi=150, bbox_inches='tight')
+    plot_rv(df_rv, chart_path)
     count += 1
-    plt.close()
+
     with open(file_path, 'a', encoding='utf-8') as f:
         f.write(f'![RV20指标图]({chart_name})\n\n')
 
@@ -421,44 +320,36 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
             liquidity_risk = "🟡 流动性一般"
             liquidity_desc = "价格恢复较慢，流动性需关注"
 
-        f.write(f"| **流动性风险** | {liquidity_risk} | {liquidity_desc} |\n")
+        f.write(f"| **流动性风险** | {liquidity_risk} | {liquidity_desc} |\n\n")
 
-        f.write("\n")
-
-
-
-    dict = find_root(name)
+    root_dict = find_root(name)
     with open(file_path, 'a', encoding='utf-8') as f:
         f.write("\n## 🔗 市场关联分析\n\n")
         f.write("### 物品来源追踪\n")
-        f.write(f"**物品来源**: {dict['root']}\n\n")
+        f.write(f"**物品来源**: {root_dict['root']}\n\n")
+
+        if not (root_dict['root'] is None) and not ('Capsule' in root_dict['root']):
+            f.write("### 炼金关联分析\n")
+            smaller_type = root_dict['brothers'].get(root_dict['type'] - 1, [])
+            if root_dict['type'] != 6 and len(smaller_type) > 0:
+                f.write("*炼金原料列表*\n\n")
+                for item in smaller_type:
+                    f.write(f"- {item}\n")
+
+            bigger_type = root_dict['brothers'].get(root_dict['type'] + 1, [])
+            if root_dict['type'] != 5 and len(bigger_type) > 0:
+                f.write("\n*炼金成品列表*\n\n")
+                for item in bigger_type:
+                    f.write(f"- {item}\n")
 
 
-        if not 'Capsule' in dict['root']:
-            f.write("### 炼金原料关联分析\n")
-            f.write("*炼金原料市场走势分析待完善*\n\n")
-
-    # 总结部分
-    with open(file_path, 'a', encoding='utf-8') as f:
-        f.write("\n## 💡 投资建议\n\n")
-        f.write("### 短期展望 (1-7天)\n")
-        f.write("*基于技术指标的短期分析待完善*\n\n")
-
-        f.write("### 中期展望 (7-30天)\n")
-        f.write("*基于趋势和基本面的中期分析待完善*\n\n")
-
-        f.write("### 风险提示\n")
-        f.write("1. 市场波动风险\n")
-        f.write("2. 流动性风险\n")
-        f.write("3. 政策风险\n\n")
-
-        f.write("---\n")
+        f.write("\n---\n")
         f.write("\n**报告生成完成**\n")
         f.write(f" *生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
 
     print(f"报告已生成: {file_path}")
 
 if __name__ == "__main__":
-    brainstorm_steam("Aces High Pin")
+    brainstorm_steam("SSG 08 | Rapid Transit")
 
 
