@@ -12,13 +12,19 @@ from cscraper.csplot import plot_boll, plot_rsi, plot_vr, plot_rv
 from cscraper.indicators import *
 from cscraper.utils import get_random_headers, get_market_name, find_root
 
+dict_of_currency={
+    "USD":1,
+    "CNY":23
+}
 
 def get_realtime_data_steam(
-        name:str = "AK-47 | Bloodsport (Factory New)"
+        name:str = "AK-47 | Bloodsport (Factory New)",
+        currency:str = "USD",
 ):
     name = get_market_name(name.strip())
     encoded_name = quote(name)
-    url = f"https://steamcommunity.com/market/priceoverview/?appid=730&currency=23&market_hash_name={encoded_name}"
+    currency = dict_of_currency[currency]
+    url = f"https://steamcommunity.com/market/priceoverview/?appid=730&currency={currency}&market_hash_name={encoded_name}"
     response = requests.get(url, headers=get_random_headers(), timeout=15)
     time.sleep(1.34)
     raw_data = response.json()
@@ -155,7 +161,7 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
 
 
     # 价格分析
-    df_realtime = get_realtime_data_steam(name)
+    df_realtime = get_realtime_data_steam(name,"CNY")
     with open(file_path, 'a', encoding='utf-8') as f:
         f.write("\n---\n")
         f.write("\n## 📊 价格走势分析\n\n")
@@ -166,9 +172,13 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
             for _, row in df_realtime.iterrows():
                 f.write(f"| {row['lowest_price']} | {row['median_price']} | {row['volume']} | {row['number']} |\n")
         f.write("\n")
-
+    df_realtime_to_history = get_realtime_data_steam(name)
     df = get_history_data_steam(name)
-
+    today_data ={'date': datetime.now().strftime('%Y%m%d'),'name': name,'price':df_realtime_to_history['lowest_price'].iloc[-1][1:],'volume':df_realtime_to_history['volume'].iloc[-1]}
+    new_row = pd.DataFrame([today_data])
+    df = pd.concat([df, new_row], ignore_index=True)
+    df['volume'] = pd.to_numeric(df['volume'], errors='coerce')
+    df['price'] = pd.to_numeric(df['price'], errors='coerce')
 
     df_history = df.tail(30).copy()
     df_history['date'] = pd.to_datetime(df_history['date'].astype(str), format='%Y%m%d')
@@ -255,10 +265,6 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
     with open(file_path, 'a', encoding='utf-8') as f:
         f.write(f'![RV20指标图]({chart_name})\n\n')
 
-    with open(file_path, 'a', encoding='utf-8') as f:
-        f.write("\n## 🔍 市场情绪分析\n\n")
-        f.write("待更新\n\n")
-
     drawdown_result = get_max_drawdown_n(df, 30)
     with open(file_path, 'a', encoding='utf-8') as f:
         f.write("\n## ⚠️ 风险指标\n\n")
@@ -341,7 +347,14 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
                 f.write("\n*炼金成品列表*\n\n")
                 for item in bigger_type:
                     f.write(f"- {item}\n")
-
+    with open(file_path, 'a', encoding='utf-8') as f:
+        f.write("\n## 🔍 多维分析建议\n\n")
+        f.write("| 视角 | 关注重点 | 时间维度 | 风险偏好 |"
+                "\n|------|----------|----------|----------|"
+                "\n| **🎨 收藏价值** | 美学价值、稀有度、文化意义 | 长期 | 低风险 |"
+                "\n| **🎮 实用价值** | 实用价值、视觉效果、使用体验 | 中期 | 中等风险 |"
+                "\n| **💼 流动价值** | 流动性、波动规律、信息差 | 短期 | 高风险 |"
+                "\n| **📈 投资价值** | 长期价值、趋势判断、资产配置 | 长期 | 中等风险 |\n\n")
 
         f.write("\n---\n")
         f.write("\n**报告生成完成**\n")
