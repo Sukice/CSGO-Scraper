@@ -85,7 +85,7 @@ def get_market_name(name:str) -> str:
 
 
 def crawl_search_list(file_path, start=0, require=""):
-    for page in range(2492):
+    while True:
         print(f"开始爬取第 {start} 条数据")
         url = f"https://steamcommunity.com/market/search/render/?query=&start={start}&count=10&search_descriptions=0&sort_column=name&sort_dir=desc&appid=730&norender=1"+require
         try:
@@ -121,16 +121,25 @@ def crawl_search_list(file_path, start=0, require=""):
             break
 
 
-def init_database_namedata_all(start):
+def init_database_namedata_all():
+    print("开始初始化市场物品清单")
+    start = 0
     data_dir = "./database/namedata"
     csv_file = os.path.join(data_dir, "all_name_list.csv")
+    if os.path.exists(csv_file):
+        df = pd.read_csv(csv_file)
+        start = len(df)
     os.makedirs(data_dir, exist_ok=True)
     return crawl_search_list(csv_file, start)
 
-def init_database_namedata_case(start):
+def init_database_namedata_case():
     print("开始初始化箱子列表，请勿中途退出")
     data_dir = "./database/namedata"
     csv_file = os.path.join(data_dir, "case_name_list.csv")
+    start = 0
+    if os.path.exists(csv_file):
+        df = pd.read_csv(csv_file)
+        start = len(df)
     os.makedirs(data_dir, exist_ok=True)
     require = "&category_730_Type%5B%5D=tag_CSGO_Type_WeaponCase"
     return crawl_search_list(csv_file, start, require)
@@ -291,5 +300,3 @@ def find_root(name):
     }
     return dict
 
-if __name__ == "__main__":
-    init_database_casecontent()
