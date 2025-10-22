@@ -130,7 +130,13 @@ def init_database_namedata_all():
         df = pd.read_csv(csv_file)
         start = len(df)
     os.makedirs(data_dir, exist_ok=True)
-    return crawl_search_list(csv_file, start)
+    try:
+        crawl_search_list(csv_file, start)
+    except Exception as e:
+        print(f"连接出错{e}")
+        time.sleep(180)
+        init_database_namedata_all()
+    return
 
 def init_database_namedata_case():
     print("开始初始化箱子列表，请勿中途退出")
@@ -139,10 +145,16 @@ def init_database_namedata_case():
     start = 0
     if os.path.exists(csv_file):
         df = pd.read_csv(csv_file)
-        start = len(df)
+        start = len(df) + 1
     os.makedirs(data_dir, exist_ok=True)
     require = "&category_730_Type%5B%5D=tag_CSGO_Type_WeaponCase"
-    return crawl_search_list(csv_file, start, require)
+    try:
+        crawl_search_list(csv_file, start, require)
+    except Exception as e:
+        print(f"连接出错{e}")
+        time.sleep(180)
+        init_database_namedata_case()
+    return
 
 
 import random
@@ -194,17 +206,29 @@ color_to_rarity = {
     'ffd700': 6,  # 金色
 }
 def init_database_casecontent():
-    if not os.path.exists("./database/namedata/case_name_list.csv"):
-        init_database_namedata_case()
-        time.sleep(5)
+    folder_path = "./database/casedata/case_content/"
+    init_database_namedata_case()
     df = pd.read_csv("./database/namedata/case_name_list.csv",
                      sep=",",
                      quoting=csv.QUOTE_NONNUMERIC,
     )
+    if os.path.exists(folder_path):
+        file_names = os.listdir(folder_path)
+        file_names = list(set(file_names))
+        for idx in range(len(file_names)):
+            file_names[idx] = file_names[idx].replace(".csv", "")
+            file_names[idx] = file_names[idx].replace("@", ":")
+            file_names[idx] = file_names[idx].replace("_", "|")
+            file_names[idx] = file_names[idx].replace("一", "#")
+        print(file_names)
+    else:
+        os.makedirs(folder_path, exist_ok=True)
+        file_names = []
     for case_name in df['market_hash_name']:
-        if not os.path.exists(f"./database/casedata/case_content/{case_name}.csv"):
-            os.makedirs(f"./database/casedata/case_content/", exist_ok=True)
-        else:
+        print(f"正在初始化 {case_name} 的内容列表...")
+        if case_name in file_names:
+            file_names.remove(case_name)
+            print("已有")
             continue
         url = "https://steamcommunity.com/market/listings/730/"+case_name
         headers = {
@@ -241,6 +265,9 @@ def init_database_casecontent():
                                             'rarity': rarity
                                         })
                                 df = pd.DataFrame(items)
+                                case_name = case_name.replace("|","_")
+                                case_name = case_name.replace(":", "@")
+                                case_name = case_name.replace("一", "#")
                                 df.to_csv(f"./database/casedata/case_content/{case_name}.csv",
                                             index=False,
                                             quoting = csv.QUOTE_NONNUMERIC,
@@ -248,6 +275,11 @@ def init_database_casecontent():
                             except KeyError as e:
                                 print(f"数据结构错误: {e}")
                                 print(url)
+        else:
+            print("连接出错，正在休息")
+            time.sleep(250)
+            init_database_casecontent()
+    print("初始化完成！")
 
 """
 def convert_hash_to_ch(name):
@@ -266,8 +298,6 @@ def convert_hash_to_ch(name):
     return name
 """
 
-
-
 #目前仅支持武器箱收藏品寻亲寻根
 def find_root(name):
     name = get_market_name(name)
@@ -275,6 +305,9 @@ def find_root(name):
     for filename in os.listdir(folder_path):
         if filename.endswith('.csv'):
             file_path = os.path.join(folder_path, filename)
+            filename = filename.replace('_', '|')
+            filename = filename.replace('@', ':')
+            filename = filename.replace("一", "#")
             df = pd.read_csv(file_path)
             if (df.iloc[:, 0].str.strip().apply(lambda x: x in name.strip())).any():
                 filename = filename.replace('.csv', '')
@@ -300,3 +333,5 @@ def find_root(name):
     }
     return dict
 
+if __name__ == "__main__":
+    init_database_namedata_all()

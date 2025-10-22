@@ -363,6 +363,6 @@ def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
     print(f"报告已生成: {file_path}")
 
 if __name__ == "__main__":
-    brainstorm_steam("SSG 08 | Rapid Transit")
+    brainstorm_steam("AK-47 血腥运动 （崭新出厂）")
 
 
