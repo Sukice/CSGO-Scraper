@@ -332,6 +332,3 @@ def find_root(name):
         "brothers": {},
     }
     return dict
-
-if __name__ == "__main__":
-    init_database_namedata_all()

@@ -1,9 +1,6 @@
 from datetime import datetime, timedelta
 import numpy as np
 
-from cscraper.fetch_steam import get_history_data_steam
-
-
 def get_ma_n(df, n=20):
     ma_col = f"MA{n}"
     df[ma_col] = df['price'].rolling(window=n, min_periods=1).mean().round(2)
@@ -78,12 +75,5 @@ def get_max_drawdown_n(df, n=90):
     }
     return result
 
-if __name__ == '__main__':
-    df = get_history_data_steam("梦魇武器箱")
-    print(get_max_drawdown_n(df),'\n')
-    print(get_vol_ratio_n(df),'\n')
-    print(get_boll_n(df),'\n')
-    print(get_rv_n(df),'\n')
-    print(get_ma_n(df),'\n')
-    print(get_rsi_n(df),'\n')
+
 
