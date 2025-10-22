@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 import time
 from cscraper.csplot import plot_boll, plot_rsi, plot_vr, plot_rv
 from cscraper.indicators import *
-from cscraper.utils import get_random_headers, get_market_name, find_root
+from cscraper.utils import get_random_headers, get_market_name, find_root, get_data_path
 
 dict_of_currency={
     "USD":1,
@@ -83,8 +83,8 @@ def get_history_data_steam(
 
     name = get_market_name(name.strip())
     safe_name = name.replace("|", "-")
-    if os.path.exists(f"../data/steam/{safe_name}.csv"):
-        df = pd.read_csv(f"../data/steam/{safe_name}.csv")
+    if os.path.exists(os.path.join(get_data_path(), f"steam/{safe_name}.csv")):
+        df = pd.read_csv(os.path.join(get_data_path(), f"steam/{safe_name}.csv"))
         return parse_data_by_mode(df, mode)
     encoded_name = quote(name)
     url = f"https://steamcommunity.com/market/listings/730/{encoded_name}"
@@ -116,9 +116,9 @@ def get_history_data_steam(
                 df['date'] = df['raw_date'].apply(parse_date)
                 df['name'] = name
                 df = df[['date', 'name', 'price', 'volume']]
-                if not os.path.exists(f"../data/steam"):
-                    os.makedirs("../data/steam", exist_ok=True)
-                filename = f"../data/steam/{name}.csv"
+                if not os.path.exists(os.path.join(get_data_path(), f"steam")):
+                    os.makedirs(os.path.join(get_data_path(), f"steam"), exist_ok=True)
+                filename = os.path.join(get_data_path(), f"steam/{name}.csv")
                 safe_name = filename.replace("|", "-")
                 df.to_csv(safe_name, index=False, quoting=csv.QUOTE_NONNUMERIC)
                 return parse_data_by_mode(df, mode)
@@ -135,7 +135,7 @@ import matplotlib.dates as mdates
 plt.rcParams["font.family"] = ["SimHei"]
 plt.rcParams["axes.unicode_minus"] = False
 
-def brainstorm_steam(name, folder_path="../data/steam/brainstorm"):
+def brainstorm_steam(name, folder_path=os.path.join(get_data_path(), f"steam/brainstorm")):
     name = get_market_name(name).strip()
     file_name = name.replace(" ", "_")
     file_name = file_name.replace("|", "_")

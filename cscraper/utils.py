@@ -8,15 +8,23 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-from . import ROOT_PATH
+from cscraper import ROOT_PATH
 root_path = ROOT_PATH
 
+data_path = "./data/"
+
+def set_data_path(path):
+    global data_path
+    data_path = path
+def get_data_path():
+    return data_path
 
 def get_market_name(name:str) -> str:
     # 检测文件中是否已有搜索历史
     def check_market_hash_name(target):
         file_path = os.path.join(root_path,"database/namedata/all_name_list.csv")
-        cache_path = "../data/steam/market_hash_name.csv"
+
+        cache_path = os.path.join(get_data_path(), "steam/market_hash_name.csv")
         def check_in_file(path):
             if not os.path.exists(path):
                 return None
@@ -56,7 +64,7 @@ def get_market_name(name:str) -> str:
                 return max(dict_result, key=dict_result.get)
 
             market_hash_name = match_result(results, name)
-            data_dir = "../data/steam"
+            data_dir = os.path.join(get_data_path(), "steam")
             csv_file = os.path.join(data_dir, "market_hash_name.csv")
             os.makedirs(data_dir, exist_ok=True)
             new_data = {
@@ -228,8 +236,10 @@ def init_database_casecontent():
         os.makedirs(folder_path, exist_ok=True)
         file_names = []
     for case_name in df['market_hash_name']:
+        if case_name == "#CSGO_crate_musickit_masterminds2_stattrak_capsule" or case_name == "#CSGO_crate_musickit_masterminds2_capsule":
+            continue
         print(f"正在初始化 {case_name} 的内容列表...")
-        if case_name in file_names:
+        if case_name in file_names :
             file_names.remove(case_name)
             print("已有")
             continue
@@ -312,7 +322,8 @@ def find_root(name):
             filename = filename.replace('@', ':')
             filename = filename.replace("一", "#")
             df = pd.read_csv(file_path)
-            if (df.iloc[:, 0].str.strip().apply(lambda x: x in name.strip())).any():
+            name_processed = re.sub(r'\s*\([^)]*\)\s*$', '', name.strip()).strip()
+            if (df.iloc[:, 0].str.strip() == name_processed).any():
                 filename = filename.replace('.csv', '')
                 result_dict = {}
                 for index, row in df.iterrows():
