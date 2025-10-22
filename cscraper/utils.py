@@ -277,14 +277,15 @@ def init_database_casecontent():
                                             'name': value,
                                             'rarity': rarity
                                         })
-                                df = pd.DataFrame(items)
-                                case_name = case_name.replace("|","_")
-                                case_name = case_name.replace(":", "@")
-                                case_name = case_name.replace("一", "#")
-                                df.to_csv(os.path.join(root_path,"database/casedata/case_content/{case_name}.csv"),
-                                            index=False,
-                                            quoting = csv.QUOTE_NONNUMERIC,
-                                )
+                                if items:
+                                    df = pd.DataFrame(items)
+                                    case_name = case_name.replace("|","_")
+                                    case_name = case_name.replace(":", "@")
+                                    case_name = case_name.replace("一", "#")
+                                    df.to_csv(os.path.join(root_path,"database/casedata/case_content/{case_name}.csv"),
+                                                index=False,
+                                                quoting = csv.QUOTE_NONNUMERIC,
+                                    )
                             except KeyError as e:
                                 print(f"数据结构错误: {e}")
                                 print(url)
@@ -321,7 +322,11 @@ def find_root(name):
             filename = filename.replace('_', '|')
             filename = filename.replace('@', ':')
             filename = filename.replace("一", "#")
-            df = pd.read_csv(file_path)
+            if os.path.exists(file_path):
+                df = pd.read_csv(file_path)
+            else:
+                print(f"缺失{file_path}")
+                continue
             name_processed = re.sub(r'\s*\([^)]*\)\s*$', '', name.strip()).strip()
             if (df.iloc[:, 0].str.strip() == name_processed).any():
                 filename = filename.replace('.csv', '')

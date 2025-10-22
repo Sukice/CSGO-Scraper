@@ -34,7 +34,11 @@ def get_realtime_data_steam(
     listing_number = 0
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, "html.parser")
-        listing_number = soup.find('span', class_='market_listing_num_listings_qty')['data-qty']
+        listing_element = soup.find('span', class_='market_listing_num_listings_qty')
+        if listing_element:
+            listing_number = listing_element['data-qty']
+        else:
+            listing_number = 0
     else:
         print(f"请求失败，状态码：{response.status_code}，请稍后尝试")
         print(url)
@@ -159,8 +163,9 @@ def brainstorm_steam(name, folder_path=os.path.join(get_data_path(), f"steam/bra
         f.write("**数据来源**: Steam市场\n\n")
         f.write("**分析周期**: 最近30天\n\n")
 
+    start_date = datetime.now() - timedelta(days=30)
+    start_date_str = start_date.strftime('%Y%m%d')
 
-    # 价格分析
     df_realtime = get_realtime_data_steam(name,"CNY")
     with open(file_path, 'a', encoding='utf-8') as f:
         f.write("\n---\n")
@@ -180,10 +185,15 @@ def brainstorm_steam(name, folder_path=os.path.join(get_data_path(), f"steam/bra
     df['volume'] = pd.to_numeric(df['volume'], errors='coerce')
     df['price'] = pd.to_numeric(df['price'], errors='coerce')
 
-    df_history = df.tail(30).copy()
+    df_history = df[df['date']>=start_date_str]
+    if len(df_history) <25:
+        print("该物品市场数据太少，无法提供有用数据")
+        return
+    df_history = df_history.copy()
     df_history['date'] = pd.to_datetime(df_history['date'].astype(str), format='%Y%m%d')
     # 创建子图，共享x轴，调整图像大小
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10), sharex=True)
+
     # 上图：价格走势线图
     ax1.plot(df_history['date'], df_history['price'], color='#2E86AB', linewidth=2, marker='o', markersize=4)
     ax1.set_ylabel('价格', fontsize=13)
@@ -217,10 +227,10 @@ def brainstorm_steam(name, folder_path=os.path.join(get_data_path(), f"steam/bra
         f.write("### 近期价格图表 (未登录状态下货币单位为美元) \n")
         f.write(f'\n![价格走势图]({chart_name})\n\n')
 
-    df = df.tail(40)
+    df = df.tail(50)
 
     df_boll = get_boll_n(df)
-    df_boll = df_boll.tail(30)
+    df_boll = df_boll[df_boll['date']>=start_date_str]
     chart_name = f"chart{count}.png"
     chart_path = os.path.join(folder_path, chart_name)
     plot_boll(df_boll, chart_path, mode="compare", df_history=df_history)
@@ -233,7 +243,7 @@ def brainstorm_steam(name, folder_path=os.path.join(get_data_path(), f"steam/bra
         f.write("### 20日相对强弱指数 (RSI20)\n")
 
     df_rsi = get_rsi_n(df)
-    df_rsi = df_rsi.tail(30)
+    df_rsi = df_rsi[df_rsi['date']>=start_date_str]
 
     chart_name = f"chart{count}.png"
     chart_path = os.path.join(folder_path, chart_name)
@@ -245,7 +255,7 @@ def brainstorm_steam(name, folder_path=os.path.join(get_data_path(), f"steam/bra
         f.write("### 20日量比 (VR20)\n")
 
     df_vol_ratio = get_vol_ratio_n(df)
-    df_vol_ratio = df_vol_ratio.tail(30)
+    df_vol_ratio = df_vol_ratio[df_vol_ratio['date']>=start_date_str]
     chart_name = f"chart{count}.png"
     chart_path = os.path.join(folder_path, chart_name)
     plot_vr(df_vol_ratio, chart_path)
@@ -256,7 +266,7 @@ def brainstorm_steam(name, folder_path=os.path.join(get_data_path(), f"steam/bra
         f.write("### 20日滚动波动率指标 (RV20)\n")
 
     df_rv = get_rv_n(df)
-    df_rv = df_rv.tail(30)
+    df_rv = df_rv[df_rv['date']>=start_date_str]
     chart_name = f"chart{count}.png"
     chart_path = os.path.join(folder_path, chart_name)
     plot_rv(df_rv, chart_path)
@@ -362,7 +372,5 @@ def brainstorm_steam(name, folder_path=os.path.join(get_data_path(), f"steam/bra
 
     print(f"报告已生成: {file_path}")
 
-if __name__ == "__main__":
-    brainstorm_steam("AK-47 血腥运动 （崭新出厂）")
 
 
