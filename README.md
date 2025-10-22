@@ -7,6 +7,7 @@
 ```
 CSGO-Scraper/
 ├── cscraper/
+│   ├── database/              # 基础数据库
 │   ├── __init__.py            # 初始化文件
 │   ├── csplot.py              # 指标绘图
 │   ├── fetch_steam.py         # 获取Steam市场数据
@@ -42,6 +43,7 @@ get_boll_n(df_history, n)              # 计算n日布林带(Bolln)
 get_max_drawdown_n(df_history, n)      # 计算回撤情况及修复情况
 ```
 说明：输入历史行情的数据帧和窗口天数，返回一个`pd.DataFrame`包含MAn等指标
+
 注：`get_max_drawdown_n`返回的是一个包含回撤和修复情况的`Dict`
 
 ### 4.绘图函数
