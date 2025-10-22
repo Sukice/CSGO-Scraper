@@ -8,11 +8,14 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
+from . import ROOT_PATH
+root_path = ROOT_PATH
+
 
 def get_market_name(name:str) -> str:
     # 检测文件中是否已有搜索历史
     def check_market_hash_name(target):
-        file_path = f"./database/namedata/all_name_list.csv"
+        file_path = os.path.join(root_path,"database/namedata/all_name_list.csv")
         cache_path = "../data/steam/market_hash_name.csv"
         def check_in_file(path):
             if not os.path.exists(path):
@@ -124,7 +127,7 @@ def crawl_search_list(file_path, start=0, require=""):
 def init_database_namedata_all():
     print("开始初始化市场物品清单")
     start = 0
-    data_dir = "./database/namedata"
+    data_dir = os.path.join(root_path,"database/namedata")
     csv_file = os.path.join(data_dir, "all_name_list.csv")
     if os.path.exists(csv_file):
         df = pd.read_csv(csv_file)
@@ -140,7 +143,7 @@ def init_database_namedata_all():
 
 def init_database_namedata_case():
     print("开始初始化箱子列表，请勿中途退出")
-    data_dir = "./database/namedata"
+    data_dir = os.path.join(root_path,"database/namedata")
     csv_file = os.path.join(data_dir, "case_name_list.csv")
     start = 0
     if os.path.exists(csv_file):
@@ -206,9 +209,9 @@ color_to_rarity = {
     'ffd700': 6,  # 金色
 }
 def init_database_casecontent():
-    folder_path = "./database/casedata/case_content/"
+    folder_path = os.path.join(root_path,"database/casedata/case_content/")
     init_database_namedata_case()
-    df = pd.read_csv("./database/namedata/case_name_list.csv",
+    df = pd.read_csv(os.path.join(root_path,"database/namedata/case_name_list.csv"),
                      sep=",",
                      quoting=csv.QUOTE_NONNUMERIC,
     )
@@ -268,7 +271,7 @@ def init_database_casecontent():
                                 case_name = case_name.replace("|","_")
                                 case_name = case_name.replace(":", "@")
                                 case_name = case_name.replace("一", "#")
-                                df.to_csv(f"./database/casedata/case_content/{case_name}.csv",
+                                df.to_csv(os.path.join(root_path,"database/casedata/case_content/{case_name}.csv"),
                                             index=False,
                                             quoting = csv.QUOTE_NONNUMERIC,
                                 )
@@ -301,7 +304,7 @@ def convert_hash_to_ch(name):
 #目前仅支持武器箱收藏品寻亲寻根
 def find_root(name):
     name = get_market_name(name)
-    folder_path = "database/casedata/case_content"
+    folder_path = os.path.join(root_path,"database/casedata/case_content")
     for filename in os.listdir(folder_path):
         if filename.endswith('.csv'):
             file_path = os.path.join(folder_path, filename)
