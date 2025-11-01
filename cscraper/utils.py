@@ -181,11 +181,11 @@ def get_random_headers():
         "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
     ]
     accepts = [
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "application/json, text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "application/json, text/plain, */*",
-        "text/plain, text/html, application/xhtml+xml",
-        "image/webp,image/apng,image/*,*/*;q=0.8",
-        "application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5"
+        "application/json, text/plain, text/html, application/xhtml+xml",
+        "application/json, image/webp,image/apng,image/*,*/*;q=0.8",
+        "application/json, application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5"
     ]
     accept_languages = [
         "zh-CN,zh;q=0.9",
