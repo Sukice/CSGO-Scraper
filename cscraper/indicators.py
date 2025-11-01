@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 import numpy as np
+import pandas as pd
+
 
 def get_ma_n(df, n=20):
     ma_col = f"MA{n}"
@@ -48,6 +50,7 @@ def get_max_drawdown_n(df, n=90):
     target_date = datetime.now() - timedelta(days=n)
     df['date'] = df['date'].astype(str)
     df = df[df['date'] >= target_date.strftime("%Y%m%d")].copy()
+    df['date'] = pd.to_datetime(df['date'], format='%Y%m%d')
     df['cum_max'] = df['price'].cummax()
     df['drawdown'] = (df['price'] - df['cum_max']) / df['cum_max'] * 100
     max_drawdown = df['drawdown'].min()
@@ -61,8 +64,8 @@ def get_max_drawdown_n(df, n=90):
     if not recovery_candidates.empty:
         recovery_success = True
         recovery_date_data = recovery_candidates.loc[recovery_candidates['date'].idxmin()]
-        recovery_days = (recovery_date_data['date'] - df['date'][trough_idx]).days
         recovery_date = recovery_date_data['date']
+        recovery_days = (recovery_date_data['date'] - df['date'][trough_idx]).days
     result = {
         'max_drawdown': round(float(max_drawdown),2),
         'max_drawdown_peak_date': str(df['date'][peak_idx]),

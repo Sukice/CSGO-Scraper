@@ -55,3 +55,16 @@ plot_boll(df_boll, chart_path)         # 绘制Bolln图像
 plot_rsi(df_rsi, chart_path)           # 绘制RSIn图像
 ```
 说明：输入由对应指标函数计算结果的数据帧和想要保存图像的位置，在对应路径得到对应图像
+
+---
+
+# TODO:
+
+### 文件处理
+
+1. 优化文件名转换函数
+
+2. 抽象文件存储思路
+
+3. CN市场数据cache
+

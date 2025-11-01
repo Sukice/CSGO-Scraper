@@ -177,7 +177,7 @@ def brainstorm_steam(name, folder_path=os.path.join(get_data_path(), f"steam/bra
             for _, row in df_realtime.iterrows():
                 f.write(f"| {row['lowest_price']} | {row['median_price']} | {row['volume']} | {row['number']} |\n")
         f.write("\n")
-    df_realtime_to_history = get_realtime_data_steam(name)
+    df_realtime_to_history = df_realtime
     df = get_history_data_steam(name)
     today_data ={'date': datetime.now().strftime('%Y%m%d'),'name': name,'price':df_realtime_to_history['lowest_price'].iloc[-1][1:],'volume':df_realtime_to_history['volume'].iloc[-1]}
     new_row = pd.DataFrame([today_data])
